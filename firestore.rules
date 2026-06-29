@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global safety net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global helper primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Helper to get incoming data
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Helper to get existing data
+    function existing() {
+      return resource.data;
+    }
+
+    // 3. Project entity validation
+    function isValidProject(data) {
+      return data.keys().hasAll(['name', 'color', 'ownerId', 'createdAt'])
+        && data.keys().size() == 4
+        && data.name is string
+        && data.name.size() >= 1
+        && data.name.size() <= 100
+        && data.color is string
+        && data.color.size() >= 1
+        && data.color.size() <= 50
+        && data.ownerId == request.auth.uid;
+    }
+
+    // 4. Task entity validation
+    function isValidTask(data) {
+      return data.keys().hasAll(['projectId', 'title', 'description', 'status', 'priority', 'dueDate', 'subtasks', 'ownerId', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 10
+        && data.projectId is string
+        && data.projectId.size() >= 1
+        && data.projectId.size() <= 128
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 200
+        && data.description is string
+        && data.description.size() <= 2000
+        && data.status is string
+        && (data.status == 'pending' || data.status == 'completed')
+        && data.priority is string
+        && (data.priority == 'low' || data.priority == 'medium' || data.priority == 'high')
+        && data.dueDate is string
+        && data.dueDate.size() <= 50
+        && data.subtasks is list
+        && data.subtasks.size() <= 100
+        && data.ownerId == request.auth.uid;
+    }
+
+    // 5. Project Collection rules
+    match /projects/{projectId} {
+      // Secure list query and document reads
+      allow get: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+
+      // Create validation
+      allow create: if isSignedIn()
+        && isValidId(projectId)
+        && isValidProject(incoming())
+        && incoming().createdAt == request.time;
+
+      // Update validation - restricted fields (ownerId and createdAt are immortal)
+      allow update: if isSignedIn()
+        && isValidId(projectId)
+        && isValidProject(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasAny(['name', 'color']);
+
+      // Delete validation
+      allow delete: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 6. Task Collection rules
+    match /tasks/{taskId} {
+      // Secure list query and document reads
+      allow get: if isSignedIn() && isValidId(taskId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+
+      // Create validation - requires project validation and verification
+      allow create: if isSignedIn()
+        && isValidId(taskId)
+        && isValidTask(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        // Relational safety check: Verify the referenced project belongs to the current user
+        && get(/databases/$(database)/documents/projects/$(incoming().projectId)).data.ownerId == request.auth.uid;
+
+      // Update validation - status toggling, details editing (projectId, ownerId, createdAt are immortal)
+      allow update: if isSignedIn()
+        && isValidId(taskId)
+        && isValidTask(incoming())
+        && incoming().projectId == existing().projectId
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasAny(['title', 'description', 'status', 'priority', 'dueDate', 'subtasks', 'updatedAt']);
+
+      // Delete validation
+      allow delete: if isSignedIn() && isValidId(taskId) && existing().ownerId == request.auth.uid;
+    }
+  }
+}

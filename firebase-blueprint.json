@@ -1,0 +1,95 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "A collection representing user projects or categories of tasks",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The custom name of the task list/project"
+        },
+        "color": {
+          "type": "string",
+          "description": "Tailwind color class or hex code representing the category highlight color"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "The UID of the user who owns this project"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the project was created"
+        }
+      },
+      "required": ["name", "color", "ownerId", "createdAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "An individual task that can belong to a project and can contain subtasks",
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "description": "The ID of the project/list this task belongs to"
+        },
+        "title": {
+          "type": "string",
+          "description": "The main action item of the task"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional detailed explanation of the task"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "completed"],
+          "description": "Completion status of the task"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "Task priority level"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Optional iso-date or date string representing when the task is due"
+        },
+        "subtasks": {
+          "type": "array",
+          "description": "List of simple checklist items for this task"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "The UID of the user who owns this task"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the task was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the task was last updated"
+        }
+      },
+      "required": ["projectId", "title", "status", "priority", "ownerId", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "projects/{projectId}": {
+      "schema": {
+        "$ref": "#/entities/Project"
+      },
+      "description": "A top-level collection containing task lists/projects"
+    },
+    "tasks/{taskId}": {
+      "schema": {
+        "$ref": "#/entities/Task"
+      },
+      "description": "A top-level collection containing tasks filtered by ownerId and projectId"
+    }
+  }
+}

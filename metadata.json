@@ -1,0 +1,6 @@
+{
+  "name": "Real-time Task Manager",
+  "description": "A high-performance task management application featuring instant real-time synchronization, project categorization, subtask tracking, and search across multiple devices.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
